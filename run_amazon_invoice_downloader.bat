@@ -37,7 +37,7 @@ REM Set HEADED=1 to show browser window for debugging.
 REM Set HEADED=0 to run browser in background.
 set "HEADED=0"
 
-set "LOG_FILE=amazon_run.log"
+set "LOG_FILE=%USERPROFILE%\amazon_invoice_downloader.log"
 
 REM =========================================
 REM Start
@@ -71,7 +71,7 @@ if "%EXITCODE%"=="0" (
     echo.
     echo ERROR: Amazon download failed.
     echo Check log file:
-    echo "%PROJECT_PATH%%LOG_FILE%"
+    echo "%LOG_FILE%"
 )
 
 echo.

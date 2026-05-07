@@ -57,7 +57,7 @@ from playwright.async_api import async_playwright
 # BASE_DIR is always the folder containing this script, regardless of how
 # OneDrive is mapped (drive letter, UNC path, or junction) on any machine.
 BASE_DIR     = Path(__file__).parent
-SESSION_FILE = BASE_DIR / "amazon_session.json"
+SESSION_FILE = Path.home() / ".amazon_invoice_downloader_session.json"
 DOWNLOAD_DIR = BASE_DIR / "_downloads"
 
 # Per-user config — remembers the last chosen destination folder
