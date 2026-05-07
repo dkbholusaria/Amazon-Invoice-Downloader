@@ -8,6 +8,14 @@ A powerful, automated tool designed for CA professionals and business owners to 
 
 ---
 
+## 📸 Preview
+
+| Graphical Interface (GUI) | Command Line Interface (CLI) |
+| :---: | :---: |
+| ![GUI Screenshot](screenshots/gui.png) | ![CLI Screenshot](screenshots/cli.png) |
+
+---
+
 ## 🌟 Key Features
 
 - **🚀 Automated Batch Downloading**: Scrapes multiple pages of Amazon Business Analytics reports and downloads all selected invoices automatically.
@@ -81,11 +89,10 @@ python amazon_download_complete_documented.py --dest "C:/Invoices" --period last
 
 - `amazon_download_complete_documented.py`: The main application (GUI & Core Logic).
 - `amazon_auth.py`: Helper script for managing Amazon login sessions.
+- `screenshots/`: Folder for GUI and CLI preview images.
 - `temp_downloads/`: Temporary storage for ZIP archives (auto-cleaned).
 - `requirements.txt`: Python dependencies.
 - `.gitignore`: Ensures your private session data is never uploaded to Git.
-- `Old files/`: Archive for legacy script versions (ignored by Git).
-- `_downloads/`: Local destination for retrieved invoices (ignored by Git).
 
 ---
 
