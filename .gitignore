@@ -1,0 +1,37 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+ENV/
+bin/
+lib/
+develop-eggs/
+dist/
+downloads/
+eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Project specific
+amazon_session.json
+temp_downloads/
+*.zip
+*.log
+.DS_Store
+.vscode/
+.idea/
+Old files/
+_downloads/
+*.old
+*.bak
