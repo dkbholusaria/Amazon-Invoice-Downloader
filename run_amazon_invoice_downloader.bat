@@ -12,6 +12,11 @@ REM Keep this BAT file in the same folder as the Python script.
 set "PROJECT_PATH=%~dp0"
 set "PYTHON_EXE=python"
 set "SCRIPT_FILE=amazon_download_complete_documented.py"
+set "EXE_FILE=dist\AmazonInvoiceDownloader.exe"
+
+REM Set USE_EXE=1 to run the standalone EXE (portable).
+REM Set USE_EXE=0 to run the Python script (developer mode).
+set "USE_EXE=1"
 
 REM Destination mother folder where FY sub-folders will be created.
 
@@ -56,10 +61,16 @@ echo.
 echo Starting download. Please wait!
 echo [%DATE% %TIME%] ======== Starting Amazon download ======== >> "%LOG_FILE%"
 
-if "%HEADED%"=="1" (
-    "%PYTHON_EXE%" "%SCRIPT_FILE%" --no-gui --dest "%DEST_PATH%" --period "%PERIOD%" --headed >> "%LOG_FILE%" 2>&1
+if "%USE_EXE%"=="1" (
+    set "RUN_CMD="%EXE_FILE%""
 ) else (
-    "%PYTHON_EXE%" "%SCRIPT_FILE%" --no-gui --dest "%DEST_PATH%" --period "%PERIOD%" >> "%LOG_FILE%" 2>&1
+    set "RUN_CMD="%PYTHON_EXE%" "%SCRIPT_FILE%""
+)
+
+if "%HEADED%"=="1" (
+    %RUN_CMD% --no-gui --dest "%DEST_PATH%" --period "%PERIOD%" --headed >> "%LOG_FILE%" 2>&1
+) else (
+    %RUN_CMD% --no-gui --dest "%DEST_PATH%" --period "%PERIOD%" >> "%LOG_FILE%" 2>&1
 )
 
 set "EXITCODE=%ERRORLEVEL%"
