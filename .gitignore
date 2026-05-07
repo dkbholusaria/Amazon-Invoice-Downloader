@@ -35,3 +35,8 @@ Old files/
 _downloads/
 *.old
 *.bak
+
+# Build artifacts
+build/
+*.spec
+app_icon.ico
