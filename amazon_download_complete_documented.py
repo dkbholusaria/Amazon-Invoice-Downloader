@@ -54,14 +54,15 @@ from playwright.async_api import async_playwright
 
 
 # Paths
-# BASE_DIR is always the folder containing this script, regardless of how
-# OneDrive is mapped (drive letter, UNC path, or junction) on any machine.
 BASE_DIR     = Path(__file__).parent
-SESSION_FILE = Path.home() / ".amazon_invoice_downloader_session.json"
-DOWNLOAD_DIR = BASE_DIR / "_downloads"
 
-# Per-user config — remembers the last chosen destination folder
-CONFIG_FILE  = Path.home() / ".amazon_invoice_downloader.json"
+# Dedicated per-user directory for all private data
+USER_DIR     = Path.home() / "amazon_invoice_downloader"
+USER_DIR.mkdir(parents=True, exist_ok=True)
+
+SESSION_FILE = USER_DIR / "amazon_session.json"
+CONFIG_FILE  = USER_DIR / "config.json"
+DOWNLOAD_DIR = USER_DIR / "temp_downloads"
 
 DATE_FMT     = "%Y-%m-%d"
 GUI_DATE_FMT = "%d/%m/%Y"

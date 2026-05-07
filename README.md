@@ -57,7 +57,7 @@ Amazon Business requires a secure session. This tool uses a persistent session f
    python amazon_auth.py
    ```
 2. A browser window will open. Log in to your Amazon Business account and navigate to the **Business Analytics** page.
-3. Once the page is loaded, the script will save your session to a private file in your user profile (`.amazon_invoice_downloader_session.json`) and close.
+3. Once the page is loaded, the script will save your session securely to your user profile folder (`~/amazon_invoice_downloader/amazon_session.json`) and close.
 
 ---
 
@@ -93,9 +93,12 @@ python amazon_download_complete_documented.py --dest "C:/Invoices" --period last
 - `temp_downloads/`: Temporary storage for ZIP archives (auto-cleaned).
 - `requirements.txt`: Python dependencies.
 - `.gitignore`: Ensures your private session data is never uploaded to Git.
-- **Private Files (User Profile)**:
-  - `~/.amazon_invoice_downloader_session.json`: Your secure login session.
-  - `~/amazon_invoice_downloader.log`: Detailed run logs (moved to user profile for privacy).
+- **Private Data (User Profile)**:
+  - `~/amazon_invoice_downloader/`: All private user data is consolidated here.
+    - `amazon_session.json`: Your secure login session.
+    - `config.json`: Remembers your last used settings/folders.
+    - `run.log`: Detailed run logs.
+    - `temp_downloads/`: Temporary extraction space.
 
 ---
 

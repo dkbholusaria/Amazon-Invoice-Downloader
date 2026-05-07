@@ -21,7 +21,9 @@ import tkinter as tk
 from pathlib import Path
 from playwright.async_api import async_playwright
 
-SESSION_FILE = Path.home() / ".amazon_invoice_downloader_session.json"
+USER_DIR     = Path.home() / "amazon_invoice_downloader"
+USER_DIR.mkdir(parents=True, exist_ok=True)
+SESSION_FILE = USER_DIR / "amazon_session.json"
 
 # ── Shared state between GUI thread and Playwright thread ──────────────────
 _save_requested = threading.Event()

@@ -37,7 +37,9 @@ REM Set HEADED=1 to show browser window for debugging.
 REM Set HEADED=0 to run browser in background.
 set "HEADED=0"
 
-set "LOG_FILE=%USERPROFILE%\amazon_invoice_downloader.log"
+set "USER_DIR=%USERPROFILE%\amazon_invoice_downloader"
+if not exist "%USER_DIR%" mkdir "%USER_DIR%"
+set "LOG_FILE=%USER_DIR%\run.log"
 
 REM =========================================
 REM Start
