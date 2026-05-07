@@ -9,6 +9,10 @@ This guide provides detailed instructions for using the Amazon Business Invoice 
 To use the CLI, run the main script with the desired arguments:
 
 ```bash
+# Using the EXE
+./AmazonInvoiceDownloader.exe [arguments]
+
+# Using Python
 python amazon_download_complete_documented.py [arguments]
 ```
 
@@ -47,19 +51,19 @@ When using the `--period` argument, you can use any of the following keys:
 ### 1. Download Last Month's Invoices (The "Monthly Run")
 This is the most common use case for monthly bookkeeping.
 ```bash
-python amazon_download_complete_documented.py --dest "D:/Accounts/Invoices" --period last-month
+./AmazonInvoiceDownloader.exe --dest "D:/Accounts/Invoices" --period last-month
 ```
 
 ### 2. Download a Specific Custom Range
 Ideal for tax audits or specific project reviews.
 ```bash
-python amazon_download_complete_documented.py --dest "D:/Audit" --from 01/01/2026 --to 15/01/2026
+./AmazonInvoiceDownloader.exe --dest "D:/Audit" --from 2026-01-01 --to 2026-01-15
 ```
 
 ### 3. Rename Folders Only
 If you already have folders with Order IDs and just want to add the Seller Names without re-downloading everything.
 ```bash
-python amazon_download_complete_documented.py --dest "D:/MyInvoices" --period last-fy --rename-only
+./AmazonInvoiceDownloader.exe --dest "D:/MyInvoices" --period last-fy --rename-only
 ```
 
 ---
@@ -72,7 +76,7 @@ You can automate the tool to run every month on the 5th (once Amazon has finaliz
    ```batch
    @echo off
    cd /d "D:\Codex\Amazon-Invoice-Downloader"
-   python amazon_download_complete_documented.py --dest "D:\Invoices" --period last-month
+   AmazonInvoiceDownloader.exe --dest "D:\Invoices" --period last-month
    pause
    ```
 2. Open **Windows Task Scheduler**.

@@ -30,21 +30,18 @@ A powerful, automated tool designed for CA professionals and business owners to 
 
 ## 🛠️ Installation
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/dkbholusaria/Amazon-Invoice-Downloader.git
-cd Amazon-Invoice-Downloader
-```
+### 🚀 The Fast Way (Standalone EXE)
+1.  Download **`AmazonInvoiceDownloader.exe`** from the [Releases](https://github.com/dkbholusaria/Amazon-Invoice-Downloader/releases) page.
+2.  Run the EXE. It will automatically set up its own browser environment on the first run.
 
-### 2. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Setup Playwright
-```bash
-playwright install chromium
-```
+### 🛠️ The Developer Way (Python)
+1.  **Clone the Repository**:
+    ```bash
+    git clone https://github.com/dkbholusaria/Amazon-Invoice-Downloader.git
+    cd Amazon-Invoice-Downloader
+    ```
+2.  **Install Dependencies**: `pip install -r requirements.txt`
+3.  **Setup Playwright**: `playwright install chromium`
 
 ---
 
@@ -64,35 +61,44 @@ Amazon Business requires a secure session. This tool uses a persistent session f
 ## 🚀 How to Use
 
 ### Graphical Interface (GUI)
-Simply run the main script without arguments:
+Run the EXE or the main script:
 ```bash
+# Using EXE
+./AmazonInvoiceDownloader.exe
+
+# Using Python
 python amazon_download_complete_documented.py
 ```
 - Select your **Destination Folder**.
-- Choose a **Reporting Period** (e.g., Last Month, Current FY, or Custom Range).
+- Choose a **Reporting Period**.
 - Click **Start**.
 
 ### Command Line Interface (CLI)
-For automated workflows:
+Ideal for automated workflows and batch files:
 ```bash
+# Using EXE
+./AmazonInvoiceDownloader.exe --dest "C:/Invoices" --period last-month
+
+# Using Python
 python amazon_download_complete_documented.py --dest "C:/Invoices" --period last-month
 ```
 **Options:**
 - `--dest`: Destination folder (Required)
-- `--period`: `current-month`, `last-month`, `current-quarter`, `current-fy`, `last-fy`, `last-12-months`
-- `--from` / `--to`: Custom date range (DD/MM/YYYY)
-- `--headed`: Show the browser window during processing.
+- `--period`: `current-month`, `last-month`, `current-fy`, `last-fy`, etc.
+- `--from` / `--to`: Custom date range (YYYY-MM-DD)
+- `--headed`: Show the browser window.
+- `--no-gui`: Force CLI mode (default if period is provided).
 
 ---
 
 ## 📁 Project Structure
 
-- `amazon_download_complete_documented.py`: The main application (GUI & Core Logic).
-- `amazon_auth.py`: Helper script for managing Amazon login sessions.
-- `screenshots/`: Folder for GUI and CLI preview images.
-- `temp_downloads/`: Temporary storage for ZIP archives (auto-cleaned).
-- `requirements.txt`: Python dependencies.
-- `.gitignore`: Ensures your private session data is never uploaded to Git.
+- `AmazonInvoiceDownloader.exe`: Standalone portable application.
+- `amazon_download_complete_documented.py`: Core application logic (Python).
+- `amazon_auth.py`: Session management helper.
+- `build.py`: Script to rebuild the EXE.
+- `screenshots/`: App previews.
+- `.gitignore`: Prevents private data leaks.
 - **Private Data (User Profile)**:
   - `~/amazon_invoice_downloader/`: All private user data is consolidated here.
     - `amazon_session.json`: Your secure login session.

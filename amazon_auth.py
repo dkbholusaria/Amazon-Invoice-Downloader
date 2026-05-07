@@ -16,13 +16,21 @@ What it does:
 """
 
 import asyncio
+import os
 import threading
 import tkinter as tk
 from pathlib import Path
+
+# Dedicated per-user directory for all private data
+USER_DIR = Path.home() / "amazon_invoice_downloader"
+USER_DIR.mkdir(parents=True, exist_ok=True)
+
+# FOR EXE: Force Playwright to use a persistent folder for browsers. 
+# Must be set BEFORE importing playwright.
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(USER_DIR / "browsers")
+
 from playwright.async_api import async_playwright
 
-USER_DIR     = Path.home() / "amazon_invoice_downloader"
-USER_DIR.mkdir(parents=True, exist_ok=True)
 SESSION_FILE = USER_DIR / "amazon_session.json"
 
 # ── Shared state between GUI thread and Playwright thread ──────────────────
@@ -221,7 +229,7 @@ class AuthWindow:
         self.root.after(300, self._poll)
 
 
-if __name__ == "__main__":
+def run_auth():
     try:
         AuthWindow()
     except Exception as exc:
@@ -242,3 +250,6 @@ if __name__ == "__main__":
         tk.Label(root, text="Fix the issue above, then re-run.",
                  bg="#1a1a2e", fg="#888", font=("Segoe UI", 9)).pack(pady=(0, 14))
         root.mainloop()
+
+if __name__ == "__main__":
+    run_auth()

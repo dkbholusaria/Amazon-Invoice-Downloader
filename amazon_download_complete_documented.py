@@ -32,6 +32,7 @@ import calendar
 import json
 import queue
 import re
+import os
 import shutil
 import sys
 import tempfile
@@ -41,6 +42,15 @@ import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
+
+# Dedicated per-user directory for all private data
+USER_DIR = Path.home() / "amazon_invoice_downloader"
+USER_DIR.mkdir(parents=True, exist_ok=True)
+
+# FOR EXE: Force Playwright to use a persistent folder for browsers. 
+# Must be set BEFORE importing playwright.
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(USER_DIR / "browsers")
+
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 from urllib.parse import urlencode
 
@@ -55,10 +65,6 @@ from playwright.async_api import async_playwright
 
 # Paths
 BASE_DIR     = Path(__file__).parent
-
-# Dedicated per-user directory for all private data
-USER_DIR     = Path.home() / "amazon_invoice_downloader"
-USER_DIR.mkdir(parents=True, exist_ok=True)
 
 SESSION_FILE = USER_DIR / "amazon_session.json"
 CONFIG_FILE  = USER_DIR / "config.json"
@@ -1574,12 +1580,12 @@ class DownloadWindow:
             except SessionExpiredError as exc:
                 if attempt == 1:
                     raise SystemExit("Session still expired after re-auth. Aborting.") from exc
-                self._enqueue("\nSession expired - launching amazon_auth.py ...")
+                self._enqueue("\nSession expired - launching session setup ...")
                 self._enqueue("Log in to Amazon and click 'Save Session' in the popup window.\n")
-                proc = await asyncio.create_subprocess_exec(
-                    sys.executable, str(BASE_DIR / "amazon_auth.py")
-                )
-                await proc.wait()
+                
+                # Import here to avoid circular dependencies or early GUI triggers
+                import amazon_auth
+                amazon_auth.run_auth()
                 if not SESSION_FILE.exists():
                     raise SystemExit("amazon_auth.py closed without saving a session.")
                 self._enqueue("Session saved - retrying download ...\n")
@@ -1884,10 +1890,35 @@ async def cli_run(period: DateRange, dest_root: Path, rename_only: bool, headed:
     )
 
 
+def ensure_browser_installed():
+    """
+    Ensure the Playwright Chromium browser is available.
+    In an EXE environment, this is critical for first-time runs.
+    """
+    import subprocess
+    import sys
+    try:
+        # CREATE_NO_WINDOW for Windows to avoid flickering console
+        cflags = 0x08000000 if sys.platform == "win32" else 0
+        
+        print("Checking browser dependencies (Chromium)...")
+        # Idempotent: if already installed, this completes almost instantly.
+        subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            check=True,
+            creationflags=cflags
+        )
+    except Exception as e:
+        print(f"Warning: Automated browser installation check failed: {e}")
+
+
 def main(argv: list[str] | None = None):
     args            = parse_args(argv)
     selected_period = period_from_args(args)
     auto_start      = bool(selected_period or args.rename_only)
+    
+    # NEW: Ensure browser is ready (important for EXE portability)
+    ensure_browser_installed()
 
     dest_root: Path | None = None
     if args.dest:
@@ -1932,6 +1963,14 @@ def main(argv: list[str] | None = None):
 
 
 if __name__ == "__main__":
+    # Handle Playwright install commands when running as an EXE
+    if len(sys.argv) > 2 and sys.argv[1] == "-m" and sys.argv[2] == "playwright":
+        import sys
+        from playwright.__main__ import main as pw_main
+        sys.argv = [sys.executable] + sys.argv[3:]
+        pw_main()
+        sys.exit(0)
+
     try:
         main()
     except SystemExit:
