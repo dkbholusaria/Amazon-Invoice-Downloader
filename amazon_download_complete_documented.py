@@ -1629,6 +1629,10 @@ def parse_args(argv: list[str] | None = None):
         ),
     )
     parser.add_argument(
+        "--refresh-session", action="store_true",
+        help="Open the Amazon Session Setup window directly.",
+    )
+    parser.add_argument(
         "--period", choices=tuple(sorted(PERIOD_FACTORIES.keys())),
         help="Predefined period. Triggers CLI (non-interactive) mode.",
     )
@@ -1727,8 +1731,13 @@ def _windows_notify(
 
     if action_label and action_script:
         exe     = ps1_esc(str(sys.executable))   # e.g. C:\Python311\python.exe
-        scr     = ps1_esc(str(action_script))     # e.g. D:\Codex\...\amazon_auth.py
-        cmd_val = ps1_esc(f'{sys.executable} "{action_script}" "%1"')
+        # For EXE, we call the EXE with --refresh-session
+        # For Python script, we call python with amazon_auth.py
+        if getattr(sys, "frozen", False):
+            cmd_val = ps1_esc(f'"{sys.executable}" --refresh-session')
+        else:
+            cmd_val = ps1_esc(f'"{sys.executable}" "{action_script}"')
+            
         al_xml  = xml_esc(action_label)
         scheme  = _NOTIFY_SCHEME
 
@@ -1838,48 +1847,49 @@ async def cli_run(period: DateRange, dest_root: Path, rename_only: bool, headed:
         sys.exit(1)
 
     if rename_only:
-        ts_print("Mode: rename-only (skipping download)")
+        ts_print("Mode        : Rename-only (skipping download)")
         rename_existing(period_dir)
         ts_print("Done.")
         return
 
+    ts_print("Mode        : Download + Rename")
     if not HAS_FITZ:
         ts_print("WARNING: pymupdf not installed — seller names from PDFs won't be extracted.")
         ts_print("         Run: pip install pymupdf")
 
     seller_map: dict = {}
 
-    auth_script = BASE_DIR / "amazon_auth.py"
-
-    if not SESSION_FILE.exists():
-        msg = "No saved session. Click 'Refresh Session' or run amazon_auth.py manually."
-        ts_print(f"ERROR: No saved session found. Expected: {SESSION_FILE}")
-        ts_print(f"       {msg}")
-        _windows_notify(
-            "Amazon Invoices — Action Required", msg, icon="Warning",
-            action_label="Refresh Session", action_script=auth_script,
-        )
-        sys.exit(1)
-
     try:
+        if not SESSION_FILE.exists():
+            raise SessionExpiredError("No saved session file.")
+            
         seller_map = await download_order_docs(
             SESSION_FILE, DOWNLOAD_DIR, period_dir, period, headed=headed
         )
-        if not seller_map:
-            print("No invoices were downloaded.")
-            return
-
-        print("\nRenaming all folders ...")
-        rename_existing(period_dir, seller_map)
     except SessionExpiredError as exc:
-        msg = "Amazon session expired. Click 'Refresh Session' or run Amazon Session Refresher manually."
-        ts_print(f"ERROR: Session expired ({exc})")
-        ts_print(f"       {msg}")
+        ts_print(f"\nSESSION EXPIRED: {exc}")
+        ts_print("Action Required: A Windows notification has been sent.")
+        ts_print("Please click 'Refresh Session' in the notification to log in.")
+        
+        # Send native Windows notification with a "Refresh" button
+        # This is the ONLY way to launch the setup in CLI mode now.
         _windows_notify(
-            "Amazon Invoices-Action Required", msg, icon="Warning",
-            action_label="Refresh Session", action_script=auth_script,
+            "Amazon Invoices — Session Expired",
+            "Your Amazon session has expired. Click below to log in.",
+            icon="Warning",
+            action_label="Refresh Session",
+            action_script=BASE_DIR / "amazon_auth.py"
         )
+        
+        # Exit instead of hanging, since the notification will launch a NEW process.
         sys.exit(1)
+
+    if not seller_map:
+        ts_print("No invoices were downloaded.")
+        return
+
+    ts_print("\nRenaming all folders ...")
+    rename_existing(period_dir, seller_map)
 
     ts_print("")
     ts_print("All done.")
@@ -1919,6 +1929,12 @@ def main(argv: list[str] | None = None):
     
     # NEW: Ensure browser is ready (important for EXE portability)
     ensure_browser_installed()
+
+    # Handle direct session refresh request
+    if args.refresh_session:
+        import amazon_auth
+        amazon_auth.run_auth()
+        sys.exit(0)
 
     dest_root: Path | None = None
     if args.dest:

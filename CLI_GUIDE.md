@@ -87,6 +87,6 @@ You can automate the tool to run every month on the 5th (once Amazon has finaliz
 
 ## ⚠️ Important Notes
 
-- **Session Required**: The CLI mode requires a valid session. If your session expires, run `python amazon_auth.py` once to log in manually.
+- **Session Management**: If your session expires during a CLI run, a native **Windows Notification** will appear. Click the **"Refresh Session"** button in the notification to log in. Once saved, the session will be ready for the next run.
 - **Headless by Default**: In CLI mode, the browser runs in the background (headless) to be as fast as possible. Use `--headed` if you want to see the browser in action.
 - **Error Logs**: If a CLI run fails, check the console output or the `report_summary.xlsx` generated in the target folder for transaction details.

@@ -16,7 +16,7 @@ set "EXE_FILE=dist\AmazonInvoiceDownloader.exe"
 
 REM Set USE_EXE=1 to run the standalone EXE (portable).
 REM Set USE_EXE=0 to run the Python script (developer mode).
-set "USE_EXE=1"
+set "USE_EXE=0"
 
 REM Destination mother folder where FY sub-folders will be created.
 

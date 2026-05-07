@@ -56,6 +56,9 @@ Amazon Business requires a secure session. This tool uses a persistent session f
 2. A browser window will open. Log in to your Amazon Business account and navigate to the **Business Analytics** page.
 3. Once the page is loaded, the script will save your session securely to your user profile folder (`~/amazon_invoice_downloader/amazon_session.json`) and close.
 
+> [!TIP]
+> **CLI / Scheduled Tasks**: If your session expires during an automated run, the tool will send a native **Windows Notification**. You can click the **"Refresh Session"** button directly in the notification to log in without needing to run any manual commands.
+
 ---
 
 ## 🚀 How to Use
