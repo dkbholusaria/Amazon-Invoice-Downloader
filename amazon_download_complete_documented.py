@@ -69,6 +69,7 @@ BASE_DIR     = Path(__file__).parent
 SESSION_FILE = USER_DIR / "amazon_session.json"
 CONFIG_FILE  = USER_DIR / "config.json"
 DOWNLOAD_DIR = USER_DIR / "temp_downloads"
+RESUME_FILE  = USER_DIR / "resume_job.json"
 
 DATE_FMT     = "%Y-%m-%d"
 GUI_DATE_FMT = "%d/%m/%Y"
@@ -1585,9 +1586,10 @@ class DownloadWindow:
                 
                 # Import here to avoid circular dependencies or early GUI triggers
                 import amazon_auth
-                amazon_auth.run_auth()
-                if not SESSION_FILE.exists():
-                    raise SystemExit("amazon_auth.py closed without saving a session.")
+                res = amazon_auth.run_auth()
+                if not res or not res.get("ok"):
+                    msg = res.get("msg", "Window was closed before saving.") if res else "Window closed."
+                    raise SystemExit(f"Session Setup Failed: {msg}")
                 self._enqueue("Session saved - retrying download ...\n")
         return None, {}
 
@@ -1631,6 +1633,11 @@ def parse_args(argv: list[str] | None = None):
     parser.add_argument(
         "--refresh-session", action="store_true",
         help="Open the Amazon Session Setup window directly.",
+    )
+    # --resume-args is kept for legacy compatibility but the app now prefers resume_job.txt
+    parser.add_argument(
+        "--resume-args", metavar="ARGS",
+        help="Command-line arguments to run after session is saved.",
     )
     parser.add_argument(
         "--period", choices=tuple(sorted(PERIOD_FACTORIES.keys())),
@@ -1693,9 +1700,10 @@ _NOTIFY_SCHEME  = "amazon-inv"   # custom URL scheme used by action buttons
 def _windows_notify(
     title: str,
     message: str,
-    icon: str = "Info",
+    icon: str = "Information",
     action_label: str | None = None,
     action_script: Path | None = None,
+    resume_args: str | None = None,
 ):
     """
     Show a persistent Windows 10/11 toast notification.
@@ -1728,21 +1736,25 @@ def _windows_notify(
     # ── Optional action button ────────────────────────────────────────────
     actions_xml  = ""
     scheme_block = ""
+    app_id = "Microsoft.Windows.Terminal" if not getattr(sys, "frozen", False) else _NOTIFY_APP_ID
 
     if action_label and action_script:
-        exe     = ps1_esc(str(sys.executable))   # e.g. C:\Python311\python.exe
-        # For EXE, we call the EXE with --refresh-session
-        # For Python script, we call python with amazon_auth.py
         if getattr(sys, "frozen", False):
-            cmd_val = ps1_esc(f'"{sys.executable}" --refresh-session')
+            base_cmd = f'"{sys.executable}" --refresh-session'
         else:
-            cmd_val = ps1_esc(f'"{sys.executable}" "{action_script}"')
+            base_cmd = f'"{sys.executable}" "{action_script}"'
+            
+        if resume_args:
+            safe_args = resume_args.replace('"', '\"')
+            cmd_val = ps1_esc(f'{base_cmd} --resume-args "{safe_args}"')
+        else:
+            cmd_val = ps1_esc(base_cmd)
             
         al_xml  = xml_esc(action_label)
         scheme  = _NOTIFY_SCHEME
 
         scheme_block = f"""
-    # Register custom URL scheme so the button can launch the script
+    # Register custom URL scheme
     $s = 'HKCU:\\SOFTWARE\\Classes\\{scheme}'
     New-Item -Path $s -Force | Out-Null
     New-ItemProperty -Path $s -Name '(Default)'    -Value 'URL:Amazon Invoice Downloader' -PropertyType String -Force | Out-Null
@@ -1758,7 +1770,7 @@ def _windows_notify(
         )
 
     toast_xml = (
-        f'<toast>'
+        f'<toast activationType="protocol" launch="{_NOTIFY_SCHEME}://run">'
         f'<visual><binding template="ToastGeneric">'
         f'<text>{t_xml}</text><text>{m_xml}</text>'
         f'</binding></visual>'
@@ -1766,42 +1778,47 @@ def _windows_notify(
         f'</toast>'
     )
 
+    txml_ps = ps1_esc(toast_xml)
     t_ps = ps1_esc(title)
     m_ps = ps1_esc(message)
-    txml_ps = ps1_esc(toast_xml)
 
     ps = f"""
 $ErrorActionPreference = 'Stop'
 try {{
-    # Register app ID so Windows accepts the notifier
+    # Register app ID so Windows accepts the notifier and keeps buttons in Action Center
     $reg = 'HKCU:\\SOFTWARE\\Classes\\AppUserModelId\\{_NOTIFY_APP_ID}'
     if (-not (Test-Path $reg)) {{
         New-Item -Path $reg -Force | Out-Null
         New-ItemProperty -Path $reg -Name 'DisplayName' -Value 'Amazon Invoice Downloader' -PropertyType String -Force | Out-Null
     }}
+
     {scheme_block}
-    [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime] | Out-Null
-    [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType=WindowsRuntime] | Out-Null
+    
+    # Load WinRT types
+    $null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime]
+    $null = [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType=WindowsRuntime]
+    
     $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
     $xml.LoadXml('{txml_ps}')
+    
     $toast    = [Windows.UI.Notifications.ToastNotification]::new($xml)
     $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('{_NOTIFY_APP_ID}')
     $notifier.Show($toast)
-    Start-Sleep -Seconds 10
+    Start-Sleep -Seconds 2
 }} catch {{
-    # Fallback: legacy balloon tip (5 s, no action button)
+    # Fallback to legacy balloon if Toast fails
     Add-Type -AssemblyName System.Windows.Forms
     $n = New-Object System.Windows.Forms.NotifyIcon
     $n.Icon    = [System.Drawing.SystemIcons]::Information
     $n.Visible = $true
-    $n.ShowBalloonTip(5000, '{t_ps}', '{m_ps}', 'Info')
-    Start-Sleep -Seconds 5
+    $n.ShowBalloonTip(10000, '{t_ps}', '{m_ps}', 'Info')
+    Start-Sleep -Seconds 10
     $n.Dispose()
 }}
 """
     try:
         tmp = Path(tempfile.gettempdir()) / "amazon_inv_notify.ps1"
-        tmp.write_text(ps, encoding="utf-8")
+        tmp.write_text(ps, encoding="utf-8-sig")
         subprocess.Popen(
             [
                 "powershell", "-NoProfile", "-WindowStyle", "Hidden",
@@ -1857,8 +1874,6 @@ async def cli_run(period: DateRange, dest_root: Path, rename_only: bool, headed:
         ts_print("WARNING: pymupdf not installed — seller names from PDFs won't be extracted.")
         ts_print("         Run: pip install pymupdf")
 
-    seller_map: dict = {}
-
     try:
         if not SESSION_FILE.exists():
             raise SessionExpiredError("No saved session file.")
@@ -1869,19 +1884,25 @@ async def cli_run(period: DateRange, dest_root: Path, rename_only: bool, headed:
     except SessionExpiredError as exc:
         ts_print(f"\nSESSION EXPIRED: {exc}")
         ts_print("Action Required: A Windows notification has been sent.")
-        ts_print("Please click 'Refresh Session' in the notification to log in.")
+        ts_print("Please click 'Refresh & Resume' in the notification.")
         
-        # Send native Windows notification with a "Refresh" button
-        # This is the ONLY way to launch the setup in CLI mode now.
+        # Save current CLI arguments to a JSON file (bulletproof for quotes/spaces)
+        try:
+            import json
+            RESUME_FILE.write_text(json.dumps(sys.argv[1:]), encoding="utf-8")
+        except Exception:
+            pass
+
+        # Send native Windows notification
         _windows_notify(
-            "Amazon Invoices — Session Expired",
-            "Your Amazon session has expired. Click below to log in.",
+            "Amazon Invoices - Session Expired",
+            "Your Amazon session has expired. Click below to log in and resume the download.",
             icon="Warning",
-            action_label="Refresh Session",
+            action_label="Refresh & Resume",
             action_script=BASE_DIR / "amazon_auth.py"
         )
         
-        # Exit instead of hanging, since the notification will launch a NEW process.
+        # Exit immediately. The notification button will trigger a NEW process.
         sys.exit(1)
 
     if not seller_map:
@@ -1932,9 +1953,22 @@ def main(argv: list[str] | None = None):
 
     # Handle direct session refresh request
     if args.refresh_session:
+        # Check if there is a "sticky" resume job waiting
+        res_args = args.resume_args
+        if not res_args and RESUME_FILE.exists():
+            try:
+                import json
+                # Load as a list
+                res_args = json.loads(RESUME_FILE.read_text(encoding="utf-8"))
+            except Exception:
+                res_args = None
+
         import amazon_auth
-        amazon_auth.run_auth()
-        sys.exit(0)
+        res = amazon_auth.run_auth(resume_args=res_args)
+        if res and res.get("ok"):
+            sys.exit(0)
+        else:
+            sys.exit(1)
 
     dest_root: Path | None = None
     if args.dest:

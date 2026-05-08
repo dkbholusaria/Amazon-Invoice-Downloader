@@ -18,6 +18,7 @@ What it does:
 import asyncio
 import os
 import threading
+import json
 import tkinter as tk
 from pathlib import Path
 
@@ -32,6 +33,7 @@ os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(USER_DIR / "browsers")
 from playwright.async_api import async_playwright
 
 SESSION_FILE = USER_DIR / "amazon_session.json"
+RESUME_FILE  = USER_DIR / "resume_job.json"
 
 # ── Shared state between GUI thread and Playwright thread ──────────────────
 _save_requested = threading.Event()
@@ -101,9 +103,10 @@ class AuthWindow:
     BTN_FG    = "#1a1a2e"
     SUCCESS   = "#4caf50"
     ERROR     = "#f44336"
-    W, H      = 420, 300
+    W, H      = 420, 320
 
-    def __init__(self):
+    def __init__(self, resume_args=None):
+        self.resume_args = resume_args
         self.root = tk.Tk()
         self.root.title("Amazon Session Setup")
         self.root.configure(bg=self.BG)
@@ -158,8 +161,9 @@ class AuthWindow:
         ).pack(**pad, pady=(0, 18))
 
         # Save button
+        btn_text = "💾  Save & Resume Download" if self.resume_args else "💾  Save Session"
         self.btn = tk.Button(
-            self.root, text="💾  Save Session",
+            self.root, text=btn_text,
             bg=self.ACCENT, fg=self.BTN_FG,
             font=("Segoe UI", 11, "bold"),
             relief="flat", cursor="hand2",
@@ -203,6 +207,10 @@ class AuthWindow:
                 )
                 self.status_var.set(_result["msg"])
                 self.status_lbl.config(fg=self.SUCCESS)
+                
+                if self.resume_args:
+                    self._trigger_resume()
+                    
                 self.root.after(3000, self.root.destroy)   # auto-close after 3 s
             else:
                 self.btn.config(
@@ -228,11 +236,50 @@ class AuthWindow:
         t.start()
         self.root.after(300, self._poll)
 
+    def _trigger_resume(self):
+        """Re-launch the main downloader with original arguments."""
+        import sys
+        import subprocess
+        import shlex
+        
+        try:
+            # Prepare the base command (python + script or just EXE)
+            if getattr(sys, 'frozen', False):
+                full_cmd = [sys.executable]
+            else:
+                main_script = Path(__file__).parent / "amazon_download_complete_documented.py"
+                full_cmd = [sys.executable, str(main_script)]
+            
+            # Append arguments (handle list from JSON or string from CLI)
+            if isinstance(self.resume_args, list):
+                full_cmd.extend(self.resume_args)
+            elif self.resume_args:
+                full_cmd.extend(shlex.split(self.resume_args))
+            
+            # Launch as a separate process
+            subprocess.Popen(full_cmd, cwd=Path(sys.executable).parent)
+            
+            # Delete the "sticky" resume file
+            RESUME_FILE = USER_DIR / "resume_job.json"
+            if RESUME_FILE.exists():
+                RESUME_FILE.unlink()
+        except Exception as exc:
+            print(f"Failed to trigger resume: {exc}")
 
-def run_auth():
+
+def run_auth(resume_args=None):
+    # If no args passed, check for a "sticky" resume file on disk
+    if not resume_args and RESUME_FILE.exists():
+        try:
+            resume_args = json.loads(RESUME_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
     try:
-        AuthWindow()
+        AuthWindow(resume_args=resume_args)
+        return _result
     except Exception as exc:
+        msg = str(exc)
         # Show error in a plain window so it doesn't silently disappear
         import traceback
         root = tk.Tk()
@@ -250,6 +297,7 @@ def run_auth():
         tk.Label(root, text="Fix the issue above, then re-run.",
                  bg="#1a1a2e", fg="#888", font=("Segoe UI", 9)).pack(pady=(0, 14))
         root.mainloop()
+        return {"ok": False, "msg": msg}
 
 if __name__ == "__main__":
     run_auth()

@@ -87,6 +87,6 @@ You can automate the tool to run every month on the 5th (once Amazon has finaliz
 
 ## ⚠️ Important Notes
 
-- **Session Management**: If your session expires during a CLI run, a native **Windows Notification** will appear. Click the **"Refresh Session"** button in the notification to log in. Once saved, the session will be ready for the next run.
+- **Session Management**: If your session expires during a CLI run, a native **Windows Notification** will appear. Click the **"Refresh & Resume"** button in the notification to log in. Once you save the session, the tool will **automatically re-launch** the downloader to finish the task it was performing.
 - **Headless by Default**: In CLI mode, the browser runs in the background (headless) to be as fast as possible. Use `--headed` if you want to see the browser in action.
 - **Error Logs**: If a CLI run fails, check the console output or the `report_summary.xlsx` generated in the target folder for transaction details.
