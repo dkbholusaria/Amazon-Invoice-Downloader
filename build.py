@@ -19,7 +19,9 @@ def build_exe():
     main_script = base_dir / "amazon_download_complete_documented.py"
     
     cmd = [
-        "pyinstaller",
+        sys.executable,
+        "-m",
+        "PyInstaller",
         "--onefile",
         "--noconsole",
         f"--name=AmazonInvoiceDownloader",
@@ -35,7 +37,7 @@ def build_exe():
     cmd = [c for c in cmd if c]
     
     print("Running PyInstaller...")
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, cwd=base_dir, check=True)
     print("\nBuild completed successfully!")
     print(f"Your EXE is in the 'dist' folder.")
 
