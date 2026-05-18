@@ -9,7 +9,7 @@ REM =========================================
 REM Project folder is automatically detected from the location of this BAT file.
 REM Keep this BAT file in the same folder as the Python script.
 
-set "PROJECT_PATH=%~dp0"
+for %%I in ("%~dp0..") do set "PROJECT_PATH=%%~fI\"
 set "PYTHON_EXE=python"
 set "SCRIPT_FILE=amazon_download_complete_documented.py"
 set "EXE_FILE=dist\AmazonInvoiceDownloader.exe"
