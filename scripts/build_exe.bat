@@ -5,14 +5,13 @@ REM  Creates a single-file EXE using PyInstaller
 REM ============================================================
 
 echo.
-cd /d "%~dp0.."
 echo ====================================================
 echo   Building Amazon Invoice Downloader ...
 echo ====================================================
 echo.
 
-REM Execute build.py using python
-python scripts\build.py
+REM Execute build.py using its absolute path reference
+python "%~dp0build.py"
 
 echo.
 pause

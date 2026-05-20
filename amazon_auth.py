@@ -28,7 +28,7 @@ USER_DIR.mkdir(parents=True, exist_ok=True)
 
 # FOR EXE: Force Playwright to use a persistent folder for browsers. 
 # Must be set BEFORE importing playwright.
-os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(USER_DIR / "browsers")
+# os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(USER_DIR / "browsers")
 
 from playwright.async_api import async_playwright
 
@@ -43,6 +43,9 @@ _result         = {"ok": False, "msg": ""}
 _context_holder = [None]   # [BrowserContext]
 _browser_holder = [None]   # [Browser]
 
+# Shared coordinates for unified dual-pane docking
+_browser_rect = {"x": 470, "y": 40, "width": 1000, "height": 800}
+
 
 # ── Playwright (runs in background thread) ─────────────────────────────────
 
@@ -51,11 +54,16 @@ def _run_browser():
 
 
 async def _browser_task():
+    global _browser_rect
+    args = [
+        f"--window-position={_browser_rect['x']},{_browser_rect['y']}",
+        f"--window-size={_browser_rect['width']},{_browser_rect['height']}"
+    ]
     async with async_playwright() as p:
         browser = await p.chromium.launch(
             headless=False,
             slow_mo=50,
-            args=["--start-maximized"],
+            args=args,
         )
         context = await browser.new_context(
             user_agent=(
@@ -111,7 +119,7 @@ class AuthWindow:
         self.root.title("Amazon Session Setup")
         self.root.configure(bg=self.BG)
         self.root.resizable(False, False)
-        self._centre()
+        self._position_left()
         self.root.attributes("-topmost", True)   # float above the browser
 
         self._build()
@@ -124,13 +132,28 @@ class AuthWindow:
         self.root.after(300, self._poll)
         self.root.mainloop()
 
-    def _centre(self):
+    def _position_left(self):
         self.root.update_idletasks()
         sw = self.root.winfo_screenwidth()
         sh = self.root.winfo_screenheight()
-        x  = (sw - self.W) // 2
+        # Position on the left side of the screen as a sidebar
+        x  = 30
         y  = (sh - self.H) // 2
         self.root.geometry(f"{self.W}x{self.H}+{x}+{y}")
+
+        # Auto-dock the browser to the right of the control panel
+        global _browser_rect
+        bx = x + self.W + 20
+        by = y - 40
+        if by < 30: by = 30
+        b_width = sw - bx - 40
+        b_height = sh - by - 80
+        if b_height < 500: b_height = 500
+
+        _browser_rect["x"] = bx
+        _browser_rect["y"] = by
+        _browser_rect["width"] = b_width
+        _browser_rect["height"] = b_height
 
     def _build(self):
         pad = dict(padx=30)

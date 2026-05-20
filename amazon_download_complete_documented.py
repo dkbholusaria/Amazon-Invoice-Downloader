@@ -43,13 +43,17 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+# Global cancellation control variables for the GUI Stop button
+_cancel_requested = False
+_active_browser = [None]
+
 # Dedicated per-user directory for all private data
 USER_DIR = Path.home() / "amazon_invoice_downloader"
 USER_DIR.mkdir(parents=True, exist_ok=True)
 
 # FOR EXE: Force Playwright to use a persistent folder for browsers. 
 # Must be set BEFORE importing playwright.
-os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(USER_DIR / "browsers")
+# os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(USER_DIR / "browsers")
 
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 from urllib.parse import urlencode
@@ -675,6 +679,7 @@ async def _set_date_filter(page, period: DateRange, screenshot_path: Path) -> bo
         Amazon's own predefined options were not reliable in automation.
     """
     await _raise_if_session_expired(page)
+    _log_cb("Selecting date range ...")
 
     if not await _open_order_date_dropdown(page):
         await page.screenshot(path=str(screenshot_path), full_page=True)
@@ -738,6 +743,7 @@ async def download_order_docs(
          d. Extract ZIP into period_dir.
          e. Click 'Next'.
     """
+    global _active_browser
     dl_dir.mkdir(parents=True, exist_ok=True)
     screenshot_path = BASE_DIR / "_debug_screenshot.png"
     url = build_report_url(period)
@@ -749,6 +755,7 @@ async def download_order_docs(
             slow_mo=200 if headed else 80,
             args=["--window-size=1440,900"] + (["--start-maximized"] if headed else []),
         )
+        _active_browser[0] = browser
         try:
             ctx = await browser.new_context(
                 storage_state=str(session_file),
@@ -776,6 +783,7 @@ async def download_order_docs(
             master_map = {}
             all_data   = [] # For CSV
             
+            _log_cb("Downloading documents ...")
             while True:
                 _log_cb(f"\n[Page {page_num}] Processing ...")
                 await page.wait_for_timeout(3500)
@@ -950,6 +958,7 @@ async def download_order_docs(
             return master_map
 
         finally:
+            _active_browser[0] = None
             await browser.close()
 
 
@@ -1242,12 +1251,22 @@ class DownloadWindow:
         self._to_entry.pack(side="left")
         self._to_picker_btn.pack(side="left", padx=(2, 0))
         
+        btn_frame = tk.Frame(panel, bg=self.CARD)
+        btn_frame.grid(row=3, column=3, sticky="e", padx=(20, 0), pady=(2, 0))
+
         self._start_btn = tk.Button(
-            panel, text="Start", bg=self.ACCENT, fg="white",
-            font=("Segoe UI", 11, "bold"), relief="flat", padx=30, pady=6,
+            btn_frame, text="Start", bg=self.ACCENT, fg="white",
+            font=("Segoe UI", 11, "bold"), relief="flat", padx=20, pady=6,
             command=self._start_worker
         )
-        self._start_btn.grid(row=3, column=3, sticky="e", padx=(20, 0), pady=(2, 0))
+        self._start_btn.pack(side="left", padx=(0, 10))
+
+        self._stop_btn = tk.Button(
+            btn_frame, text="Stop", bg=self.ERROR, fg="white",
+            font=("Segoe UI", 11, "bold"), relief="flat", padx=20, pady=6,
+            state="disabled", command=self._stop_worker
+        )
+        self._stop_btn.pack(side="left")
         panel.grid_columnconfigure(2, weight=1)
 
         # Checkbox line
@@ -1457,6 +1476,9 @@ class DownloadWindow:
             self._headed = bool(self._headed_var.get())
             save_config({"dest_folder": str(dest_path)})
 
+        global _cancel_requested
+        _cancel_requested = False
+
         self._worker_started = True
         self._done           = False
         self._success        = False
@@ -1465,6 +1487,7 @@ class DownloadWindow:
         self._processing_var.set(f"Processing: {self._date_range.label}")
         self._status_var.set("Working ...")
         self._status_lbl.config(fg=self.SUBTEXT)
+        self._stop_btn.config(state="normal")
 
         for widget in self._control_widgets:
             try:
@@ -1516,7 +1539,13 @@ class DownloadWindow:
             self.root.update_idletasks()
 
     def _on_done(self):
-        if self._success:
+        self._stop_btn.config(state="disabled")
+        global _cancel_requested
+        if _cancel_requested:
+            self._status_var.set("Download cancelled by user.")
+            self._status_lbl.config(fg=self.ERROR)
+            self._step_var.set("Cancelled")
+        elif self._success:
             self._progress["value"] = 100
             self._status_var.set("All done.")
             self._status_lbl.config(fg=self.SUCCESS)
@@ -1534,6 +1563,27 @@ class DownloadWindow:
                 pass
         self._worker_started = False
         self._start_btn.config(state="normal")
+
+    def _stop_worker(self):
+        global _cancel_requested, _active_browser
+        if not self._worker_started or _cancel_requested:
+            return
+        
+        _cancel_requested = True
+        self._stop_btn.config(state="disabled")
+        self._status_var.set("Stopping download, please wait ...")
+        self._status_lbl.config(fg=self.SUBTEXT)
+        self._enqueue("\nCancelling download process ...")
+        
+        if _active_browser[0]:
+            self._enqueue("Closing browser context ...")
+            def force_close():
+                try:
+                    import asyncio
+                    asyncio.run(_active_browser[0].close())
+                except Exception:
+                    pass
+            threading.Thread(target=force_close, daemon=True).start()
 
     def _run_logic(self):
         try:
@@ -1565,7 +1615,7 @@ class DownloadWindow:
             if not seller_map:
                 return  # already logged or empty
             
-            self._enqueue("\nRenaming all folders ...")
+            self._enqueue("\nRenaming folders ...")
             rename_existing(period_dir, seller_map)
 
         self._enqueue("\nOK All done.")
